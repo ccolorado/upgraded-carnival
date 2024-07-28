@@ -22,10 +22,9 @@ contract WeightedIndex is ERC20, Ownable {
     // Token addresses and weights
     IERC20 public token1;
     IERC20 public token2;
+
     uint256 public weight1;
     uint256 public weight2;
-
-    // Mock price feeds for the tokens (in USD, for simplicity)
     uint256 public token1Price;
     uint256 public token2Price;
 
@@ -39,12 +38,12 @@ contract WeightedIndex is ERC20, Ownable {
     * @param _token2 address Address of the second token.
     * @param _weight1 uint256 Weight of the first token (in basis points, e.g., 5000 for 50%).
     * @param _weight2 uint256 Weight of the second token (in basis points, e.g., 5000 for 50%).
+    * @param _priceOracle address Adress of the priceOracle contract.
     */
     constructor(
             address _token1, address _token2, uint256 _weight1, uint256 _weight2, address _priceOracle
         ) ERC20("WeightedIndex", "WI") {
 
-        /// TODO: use Errors instead or revert messages
         require(_token1 != address(0) && _token2 != address(0), "Invalid token address");
         require(_weight1 + _weight2 == 10000, "Total weight must be 100%");
 
@@ -76,7 +75,6 @@ contract WeightedIndex is ERC20, Ownable {
         uint256 token2Value = (_token2Price * token2.balanceOf(address(this)) * weight2) / 10000;
 
         indexValue = token1Value + token2Value;
-
     }
 
     /**
