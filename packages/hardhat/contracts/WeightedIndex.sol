@@ -2,6 +2,9 @@
 // pragma solidity >=0.8.0 <0.9.0;
 pragma solidity ^0.8.17;
 
+// import { IMockPriceFeedOracle } from "MockPriceFeedOracle.sol";
+import { IMockPriceFeedOracle } from "./MockPriceFeedOracle.sol";
+
 import "hardhat/console.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -12,6 +15,9 @@ error InvalidCumulativeWeight(uint256 weight);
 error ZeroTokenAddress();
 
 contract WeightedIndex is ERC20, Ownable {
+
+    // PriceFeedContract
+    IMockPriceFeedOracle public priceOracle;
 
     // Token addresses and weights
     IERC20 public token1;
@@ -34,11 +40,15 @@ contract WeightedIndex is ERC20, Ownable {
     * @param _weight1 uint256 Weight of the first token (in basis points, e.g., 5000 for 50%).
     * @param _weight2 uint256 Weight of the second token (in basis points, e.g., 5000 for 50%).
     */
-    constructor(address _token1, address _token2, uint256 _weight1, uint256 _weight2) ERC20("WeightedIndex", "WI") {
+    constructor(
+            address _token1, address _token2, uint256 _weight1, uint256 _weight2, address _priceOracle
+        ) ERC20("WeightedIndex", "WI") {
+
         /// TODO: use Errors instead or revert messages
         require(_token1 != address(0) && _token2 != address(0), "Invalid token address");
         require(_weight1 + _weight2 == 10000, "Total weight must be 100%");
 
+        priceOracle = IMockPriceFeedOracle(_priceOracle);
         token1 = IERC20(_token1);
         token2 = IERC20(_token2);
         weight1 = _weight1;
@@ -46,23 +56,24 @@ contract WeightedIndex is ERC20, Ownable {
     }
 
     /**
-    * @dev Updates the mock prices for the tokens.
-    * @param _token1Price uint256 New price for the first token.
-    * @param _token2Price uint256 New price for the second token.
+    * @dev Updates the prices for the tokens from the mock price oracle.
     */
-    function updatePrices(uint256 _token1Price, uint256 _token2Price) external onlyOwner {
-        token1Price = _token1Price;
-        token2Price = _token2Price;
-        emit PricesUpdated(_token1Price, _token2Price);
+    function updatePrices() external onlyOwner {
+        token1Price = priceOracle.getPrice(address(token1));
+        token2Price = priceOracle.getPrice(address(token2));
+        emit PricesUpdated(token1Price, token2Price);
     }
 
     /**
-    * @dev Calculates the current index value based on token prices and weights.
+    * @dev Calculates the current index value based on token prices from the oracle and weights.
     * @return indexValue The current index value.
     */
     function getIndexValue() public view returns (uint256 indexValue) {
-        uint256 token1Value = (token1Price * token1.balanceOf(address(this)) * weight1) / 10000;
-        uint256 token2Value = (token2Price * token2.balanceOf(address(this)) * weight2) / 10000;
+        uint256 _token1Price = priceOracle.getPrice(address(token1));
+        uint256 _token2Price = priceOracle.getPrice(address(token2));
+
+        uint256 token1Value = (_token1Price * token1.balanceOf(address(this)) * weight1) / 10000;
+        uint256 token2Value = (_token2Price * token2.balanceOf(address(this)) * weight2) / 10000;
 
         indexValue = token1Value + token2Value;
 
